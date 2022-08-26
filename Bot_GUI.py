@@ -1,5 +1,4 @@
 from tkinter import *
-import csv
 import json
 import time
 import math

@@ -32,7 +32,6 @@ class BotGUI:
         "actual_frame_pos_x": 600,
         "last_trade_frame_pos_x": 600,
         "order_book_pos_x": 880,
-        "recent_trades_pos_x": 1190,
         "last_trans_frame_pos_x": 5,
 
         # Buttons:
@@ -75,7 +74,6 @@ class BotGUI:
         "actual_frame_pos_y": 5,
         "last_trade_frame_pos_y": 430,
         "order_book_pos_y": 5,
-        "recent_trades_pos_y": 5,
         "last_trans_frame_pos_y": 670,
 
         # Buttons:
@@ -356,12 +354,6 @@ class BotGUI:
         self.actual_bid_price_value = Label(self.orderbook_frame, font=self.font, justify=LEFT, fg="green", text="")
         self.actual_ask_price_value = Label(self.orderbook_frame, font=self.font, justify=LEFT, fg="red", text="")
 
-        # ------------------------------------------- Recent Trades --------------------------------------------
-        self.recent_trades_label_buy = Label(self.recent_trades_frame, font=self.font, justify=LEFT, fg="green",
-                                             text="")
-        self.recent_trades_label_sell = Label(self.recent_trades_frame, font=self.font, justify=RIGHT, fg="red",
-                                              text="")
-
         # -------------------------------------------  New Order --------------------------------------------
         self.new_long_order_entry = Entry(self.new_order_frame, font=self.font)
         self.new_long_order_value = Label(self.new_order_frame, font=self.font, text="")
@@ -423,9 +415,6 @@ class BotGUI:
 
         self.actual_ask_price_value.place(x=0, y=0)
         self.actual_bid_price_value.place(x=0, y=self.orderbook_levels * 20)
-
-        self.recent_trades_label_buy.place(x=0, y=0)
-        self.recent_trades_label_sell.place(x=210, y=0)
 
         # ----------------------------------------- Actual Trade ----------------------------------------------
         self.is_position_live_value.place(x=0, y=0)
@@ -533,11 +522,7 @@ class BotGUI:
         self.button_emergency_stop = Button(self.control_panel, text="EMERGENCY STOP", height=2 * self.height,
                                             width=8 * self.width,
                                             bd=5, bg="red", command=self.emergency_stop)
-        #   Recent trades start:
-        self.button_recent_trades_stream = Button(self.control_panel, text="Recent\nTrades", height=2 * self.height,
-                                                  width=3 * self.width, bd=5,
-                                                  command=lambda: threading.Thread(daemon=True,
-                                                                           target=self.recent_trades_stream).start())
+
         #   LOAD Pair Parameters:
         self.button_load_parameters = Button(self.control_panel, text="LOAD", height=self.height, width=2 * self.width,
                                              command=self.loading_config_file)
@@ -626,9 +611,7 @@ class BotGUI:
         #   EMERGENCY STOP:
         self.button_emergency_stop.place(x=self.DIM_X["long_pos_x"] + 15,
                                          y=self.DIM_Y["long_pos_y"] + 60)
-        #   RECENT TRADES:
-        self.button_recent_trades_stream.place(x=self.DIM_X["long_pos_x"] + 10,
-                                               y=self.DIM_Y["long_pos_y"] + 120)
+
         #   LOAD Parameters:
         self.button_load_parameters.place(x=self.DIM_X["drop_pos_x"] + 130,
                                           y=self.DIM_Y["drop_pos_y"] + 2)
@@ -709,14 +692,12 @@ class BotGUI:
                                                   height=230 * self.height, width=90 * self.width)
         self.orderbook_frame = LabelFrame(self.master, bd=4, text=" Order Book ", font=self.font,
                                           height=self.orderbook_levels * 42, width=300)
-        self.recent_trades_frame = LabelFrame(self.master, bd=4, text=" Recent Trades ", font=self.font,
-                                              height=self.orderbook_levels * 42, width=500)
         self.control_panel = LabelFrame(self.master, bd=4, text=" Control Panel ", font=self.font,
                                         height=420, width=260)
         self.calculated_frame = LabelFrame(self.master, bd=4, text=" Calculated Parameters ", font=self.font,
                                            height=230, width=580)
         self.new_order_frame = LabelFrame(self.master, bd=4, text=" New Order ", font=self.font,
-                                          height=230, width=580)
+                                          height=150, width=300)
 
         # --------------------- Frames Positions -------------------
         self.setting_parameters.place(x=self.DIM_X["setting_params_pos_x"],
@@ -727,8 +708,6 @@ class BotGUI:
                                            y=self.DIM_Y["last_trade_frame_pos_y"])
         self.orderbook_frame.place(x=self.DIM_X["order_book_pos_x"],
                                    y=self.DIM_Y["order_book_pos_y"])
-        self.recent_trades_frame.place(x=self.DIM_X["recent_trades_pos_x"],
-                                       y=self.DIM_Y["recent_trades_pos_y"])
         self.control_panel.place(x=self.DIM_X["control_panel_pos_x"],
                                  y=self.DIM_Y["control_panel_pos_y"])
         self.calculated_frame.place(x=self.DIM_X["result_frame_pos_x"],
@@ -1373,51 +1352,6 @@ class BotGUI:
 
         self.refresh_data()
 
-# ------------------------------------------------ Datastreams ------------------------------------------------
-    def recent_trades_stream(self):
-        self.recent_trades_sell_text = ""
-        self.recent_trades_buy_text = ""
-        socket = f"wss://fstream.binance.com/ws/{self.PAIR.lower()}@aggTrade"
-
-        ws = websocket.WebSocketApp(socket, on_message=self.recent_trades_message, on_close=self.recent_trades_close)
-
-        ws.run_forever(ping_interval=20)
-
-    def recent_trades_message(self, ws, message):
-        data = json.loads(message)
-
-        is_sell = bool(data['m'])
-        price = float(data['p'])
-        quantity = float(data['q'])
-        actual_time = int(data['T'])
-
-        trade = [actual_time, price, quantity, is_sell]
-
-        with open("recent_trades_v2.1.csv", 'a+', encoding='UTF8', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(trade)
-
-        """    
-        if quantity >= 1:
-            if is_sell:
-                sell_text = f"{price}\t{quantity}\t{actual_time}\n"
-                buy_text = "\n"
-            else:
-                buy_text = f"{price}\t{quantity}\t{actual_time}\n"
-                sell_text = "\n"
-
-            self.recent_trades_sell_text = sell_text + self.recent_trades_sell_text
-            self.recent_trades_buy_text = buy_text + self.recent_trades_buy_text
-
-        self.recent_trades_label_buy.config(text=self.recent_trades_buy_text)
-        self.recent_trades_label_sell.config(text=self.recent_trades_sell_text)
-        """
-
-    def recent_trades_close(self, ws):
-        print("### RECENT TRADES CONNECTION TERMINATED ###")
-        time.sleep(30)
-        threading.Thread(daemon=True, target=self.recent_trades_stream).start()
-
     def order_book_datastream(self):
 
         depth_socket = f"wss://fstream.binance.com/ws/{self.PAIR.lower()}@depth{self.orderbook_levels}@100ms"
@@ -1591,7 +1525,7 @@ init_balance_usdt <--- można połączyć to z przelewem kasy na konto futures
 
 root = Tk()
 root.title("Crypto Bot")
-root.geometry("1800x950")
+root.geometry("1200x870")
 
 my_gui = BotGUI(root)
 

@@ -1,4 +1,5 @@
 from tkinter import *
+import os
 import json
 import time
 import math
@@ -215,6 +216,7 @@ class BotGUI:
         self.pair_selection.set(self.PAIRS[0])
         self.drop_selected_pair = OptionMenu(self.control_panel, self.pair_selection, *self.PAIRS)
         self.PAIR = self.pair_selection.get()
+        self.config_file = f"config/{self.PAIR}/{self.PAIR}_config_file.json"
 
         #   Pair Selection position:
         self.drop_selected_pair.place(x=self.DIM_X["drop_pos_x"], y=self.DIM_Y["drop_pos_y"])
@@ -503,7 +505,7 @@ class BotGUI:
         self.new_short_order_value.config(text=self.new_short_order_text)
 
         # saving data in file:
-        self.save_all()
+        self.save_all(self.config_file)
 
     def buttons(self):
         # ------------------------------------ Buttons: --------------------------------------------------
@@ -719,12 +721,13 @@ class BotGUI:
         self.PAIR = self.pair_selection.get()
 
         # Loading config file:
+        self.config_file = f"config/{self.PAIR}/{self.PAIR}_config_file.json"
         try:
-            config_file = f"{self.PAIR}_config_file.json"
-            with open(config_file, "r") as dataread:
+            with open(self.config_file, "r") as dataread:
                 output = json.load(dataread)
         except FileNotFoundError:
-            self.save_all()
+            os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
+            self.save_all(self.config_file)
 
         try:
             self.LEVERAGE = output["leverage_set"]
@@ -766,7 +769,7 @@ class BotGUI:
         self.max_drawdawn_set("refresh")
         self.actual_drawdawn_save(close=False)
 
-    def save_all(self):
+    def save_all(self, config_file):
         config_data = {
             "pair": self.PAIR,
             "leverage_set": self.LEVERAGE,
@@ -795,7 +798,7 @@ class BotGUI:
             "new_short_order_price": self.NEW_SHORT_ORDER,
         }
 
-        with open(f"{self.PAIR}_config_file.json", "w") as fp:
+        with open(config_file, "w") as fp:
             json.dump(config_data, fp, indent=4)
 
 # ----------------------------------------- Setting data ------------------------------------------------
